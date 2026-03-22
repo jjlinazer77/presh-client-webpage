@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Phresh — Minecraft Client</title>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #050c18;
+      --surface:   #081525;
+      --border:    rgba(100,180,255,0.10);
+      --blue:      #3b9eff;
+      --blue-dim:  #1e5fa0;
+      --blue-glow: rgba(59,158,255,0.25);
+      --cyan:      #7de8ff;
+      --text:      #d4e8ff;
+      --muted:     #4a7499;
+      --white:     #f0f8ff;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* Custom cursor */
+    #cursor {
+      position: fixed; top:0; left:0; width:10px; height:10px;
+      background: var(--blue); border-radius:50%; pointer-events:none;
+      z-index:9999; transform:translate(-50%,-50%);
+      transition: transform 0.08s ease, opacity 0.2s;
+      mix-blend-mode: screen;
+    }
+    #cursor-ring {
+      position:fixed; top:0; left:0; width:34px; height:34px;
+      border:1.5px solid rgba(59,158,255,0.5); border-radius:50%;
+      pointer-events:none; z-index:9998; transform:translate(-50%,-50%);
+      transition: transform 0.18s ease, width 0.2s ease, height 0.2s ease, opacity 0.2s;
+    }
+
+    /* BG grid + radial */
+    body::before {
+      content:'';
+      position:fixed; inset:0;
+      background:
+        radial-gradient(ellipse 80% 60% at 50% 0%, rgba(30,95,160,0.18) 0%, transparent 70%),
+        linear-gradient(rgba(59,158,255,0.035) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(59,158,255,0.035) 1px, transparent 1px);
+      background-size: auto, 60px 60px, 60px 60px;
+      pointer-events:none; z-index:0;
+    }
+
+    /* Noise overlay */
+    body::after {
+      content:''; position:fixed; inset:0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events:none; z-index:0; opacity:0.4;
+    }
+
+    section, nav, footer { position: relative; z-index:1; }
+
+    /* NAV */
+    nav {
+      position: fixed; top:0; left:0; right:0;
+      display:flex; align-items:center; justify-content:space-between;
+      padding: 22px 60px;
+      backdrop-filter: blur(20px);
+      background: rgba(5,12,24,0.7);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+      transition: padding 0.3s ease;
+    }
+    .nav-logo {
+      font-size: 1.3rem; font-weight: 800; letter-spacing: 0.06em;
+      background: linear-gradient(135deg, var(--blue), var(--cyan));
+      -webkit-background-clip: text; -webkit-text-fill-color:transparent;
+      background-clip: text;
+    }
+    .nav-links { display:flex; gap:36px; list-style:none; }
+    .nav-links a {
+      color: var(--muted); text-decoration:none; font-size:0.82rem;
+      font-family:'DM Mono', monospace; letter-spacing:0.08em; text-transform:uppercase;
+      transition: color 0.2s;
+    }
+    .nav-links a:hover { color: var(--blue); }
+    .nav-cta {
+      padding:9px 22px; border:1.5px solid var(--blue);
+      border-radius:4px; color: var(--blue) !important;
+      transition: background 0.2s, color 0.2s !important;
+    }
+    .nav-cta:hover { background: var(--blue) !important; color: var(--bg) !important; }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      text-align:center; padding: 120px 40px 80px;
+    }
+    .hero-badge {
+      display:inline-flex; align-items:center; gap:8px;
+      padding:6px 16px; border:1px solid var(--border);
+      border-radius:100px; background: rgba(59,158,255,0.06);
+      font-family:'DM Mono',monospace; font-size:0.72rem;
+      letter-spacing:0.12em; text-transform:uppercase; color:var(--cyan);
+      margin-bottom:40px;
+      animation: fadeDown 0.8s ease both;
+    }
+    .hero-badge span { width:6px; height:6px; border-radius:50%; background:var(--cyan); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    .hero h1 {
+      font-size: clamp(3.5rem, 9vw, 8rem);
+      font-weight: 800; line-height: 0.95;
+      letter-spacing: -0.03em;
+      animation: fadeDown 0.8s 0.1s ease both;
+    }
+    .hero h1 .line { display:block; }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, var(--blue) 0%, var(--cyan) 100%);
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+
+    .hero-sub {
+      max-width:480px; margin:28px auto 0;
+      font-family:'DM Mono',monospace; font-size:0.88rem;
+      color:var(--muted); line-height:1.75;
+      animation: fadeDown 0.8s 0.2s ease both;
+    }
+
+    .hero-actions {
+      display:flex; gap:16px; margin-top:48px; flex-wrap:wrap; justify-content:center;
+      animation: fadeDown 0.8s 0.3s ease both;
+    }
+    .btn-primary {
+      padding:14px 34px; border-radius:6px;
+      background: linear-gradient(135deg, var(--blue), #1d80e0);
+      color:#fff; font-family:'Syne',sans-serif; font-weight:700;
+      font-size:0.9rem; letter-spacing:0.04em;
+      border:none; cursor:none;
+      box-shadow: 0 0 40px rgba(59,158,255,0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .btn-primary:hover { transform:translateY(-2px); box-shadow:0 0 60px rgba(59,158,255,0.5); }
+    .btn-ghost {
+      padding:14px 34px; border-radius:6px;
+      border:1.5px solid var(--border); color:var(--text);
+      font-family:'Syne',sans-serif; font-weight:600;
+      font-size:0.9rem; letter-spacing:0.04em;
+      background:transparent; cursor:none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-ghost:hover { border-color: var(--blue); color:var(--blue); }
+
+    /* hero hud removed */
+
+    /* Scroll fade animations */
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-20px);} to{opacity:1;transform:none;} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(30px);}  to{opacity:1;transform:none;} }
+    @keyframes fadeIn   { from{opacity:0;} to{opacity:1;} }
+
+    .reveal { opacity:0; transform:translateY(30px); transition:opacity 0.7s ease, transform 0.7s ease; }
+    .reveal.visible { opacity:1; transform:none; }
+
+    /* STATS BAR */
+    .stats-bar {
+      border-top:1px solid var(--border);
+      border-bottom:1px solid var(--border);
+      display:flex; align-items:stretch;
+    }
+    .stats-bar-item {
+      flex:1; padding:40px 20px; text-align:center;
+      border-right:1px solid var(--border);
+    }
+    .stats-bar-item:last-child { border-right:none; }
+    .stats-bar-item .n {
+      font-size:2.8rem; font-weight:800;
+      background:linear-gradient(135deg,var(--blue),var(--cyan));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .stats-bar-item .l { font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; margin-top:4px; }
+
+    /* FEATURES */
+    .features {
+      padding: 120px 60px;
+    }
+    .section-label {
+      font-family:'DM Mono',monospace; font-size:0.72rem;
+      letter-spacing:0.18em; text-transform:uppercase; color:var(--blue);
+      display:flex; align-items:center; gap:12px; margin-bottom:20px;
+    }
+    .section-label::after { content:''; flex:1; max-width:60px; height:1px; background:var(--blue-dim); }
+    .section-title { font-size:clamp(2rem,4vw,3rem); font-weight:800; line-height:1.1; letter-spacing:-0.02em; }
+    .section-sub { font-family:'DM Mono',monospace; color:var(--muted); font-size:0.85rem; line-height:1.7; margin-top:16px; max-width:440px; }
+
+    .features-grid {
+      display:grid; grid-template-columns:repeat(3,1fr); gap:2px;
+      margin-top:60px;
+      border:1px solid var(--border); border-radius:12px; overflow:hidden;
+    }
+    .feat-card {
+      padding:40px 36px; background:var(--surface);
+      border:1px solid transparent;
+      transition:background 0.3s, border-color 0.3s;
+      position:relative; overflow:hidden;
+    }
+    .feat-card::before {
+      content:''; position:absolute; inset:0;
+      background:radial-gradient(circle at 30% 0%,rgba(59,158,255,0.07),transparent 60%);
+      opacity:0; transition:opacity 0.3s;
+    }
+    .feat-card:hover { background:#0a1c30; border-color:rgba(59,158,255,0.12); }
+    .feat-card:hover::before { opacity:1; }
+    .feat-icon {
+      width:44px; height:44px; border-radius:10px;
+      background:rgba(59,158,255,0.1); border:1px solid rgba(59,158,255,0.2);
+      display:flex; align-items:center; justify-content:center;
+      font-size:1.3rem; margin-bottom:24px;
+    }
+    .feat-title { font-size:1.05rem; font-weight:700; color:var(--white); margin-bottom:10px; }
+    .feat-desc { font-family:'DM Mono',monospace; font-size:0.78rem; color:var(--muted); line-height:1.7; }
+
+    /* MODULES */
+    .modules { padding:120px 60px; }
+    .modules-inner { display:grid; grid-template-columns:1fr 1fr; gap:80px; align-items:center; }
+    .modules-list { display:flex; flex-direction:column; gap:4px; margin-top:40px; }
+    .mod-item {
+      display:flex; align-items:center; gap:16px;
+      padding:14px 18px; border-radius:8px; border:1px solid transparent;
+      cursor:default; transition:0.2s;
+    }
+    .mod-item:hover, .mod-item.sel {
+      background:rgba(59,158,255,0.06); border-color:rgba(59,158,255,0.15);
+    }
+    .mod-bullet {
+      width:8px; height:8px; border-radius:50%;
+      background:var(--muted); transition:0.2s; flex-shrink:0;
+    }
+    .mod-item:hover .mod-bullet, .mod-item.sel .mod-bullet { background:var(--blue); box-shadow:0 0 10px rgba(59,158,255,0.6); }
+    .mod-text { flex:1; }
+    .mod-item-name { font-size:0.9rem; font-weight:600; color:var(--text); }
+    .mod-item-desc { font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); margin-top:2px; }
+    .mod-tag {
+      font-family:'DM Mono',monospace; font-size:0.62rem; padding:2px 8px;
+      border-radius:100px; letter-spacing:0.06em; text-transform:uppercase;
+    }
+    .mod-tag.combat { background:rgba(255,100,100,0.1); color:#ff9090; border:1px solid rgba(255,100,100,0.2); }
+    .mod-tag.visual { background:rgba(59,158,255,0.1); color:var(--blue); border:1px solid rgba(59,158,255,0.2); }
+    .mod-tag.move  { background:rgba(125,232,255,0.1); color:var(--cyan); border:1px solid rgba(125,232,255,0.2); }
+    .mod-tag.misc  { background:rgba(180,100,255,0.1); color:#c97aff; border:1px solid rgba(180,100,255,0.2); }
+
+    /* right side visualizer */
+    .modules-vis {
+      position:relative; height:420px;
+      display:flex; align-items:center; justify-content:center;
+    }
+    .vis-ring {
+      position:absolute; border-radius:50%; border:1px solid rgba(59,158,255,0.1);
+      animation:spin 20s linear infinite;
+    }
+    @keyframes spin { to { transform:rotate(360deg); } }
+    .vis-ring:nth-child(2) { animation-direction:reverse; animation-duration:14s; }
+    .vis-center {
+      width:120px; height:120px; border-radius:50%;
+      background:radial-gradient(circle, rgba(59,158,255,0.15), rgba(59,158,255,0.02));
+      border:1px solid rgba(59,158,255,0.25);
+      display:flex; align-items:center; justify-content:center;
+      font-size:2.4rem;
+      box-shadow:0 0 60px rgba(59,158,255,0.15);
+      position:relative; z-index:1;
+    }
+    .vis-orbit-dot {
+      position:absolute; width:8px; height:8px;
+      border-radius:50%; background:var(--blue);
+      box-shadow:0 0 12px rgba(59,158,255,0.8);
+    }
+
+    /* DOWNLOAD */
+    .download {
+      padding:120px 60px; text-align:center;
+    }
+    .download-card {
+      max-width:700px; margin:0 auto;
+      padding:72px 60px; border-radius:16px;
+      background:rgba(8,21,37,0.9);
+      border:1px solid rgba(59,158,255,0.15);
+      box-shadow:0 0 100px rgba(59,158,255,0.08), inset 0 1px 0 rgba(255,255,255,0.04);
+      position:relative; overflow:hidden;
+    }
+    .download-card::before {
+      content:''; position:absolute; top:-100px; left:50%; transform:translateX(-50%);
+      width:400px; height:400px; border-radius:50%;
+      background:radial-gradient(circle, rgba(59,158,255,0.1),transparent 70%);
+      pointer-events:none;
+    }
+    .download-card h2 { font-size:2.5rem; font-weight:800; letter-spacing:-0.02em; color:var(--white); margin-bottom:16px; }
+    .download-card p { font-family:'DM Mono',monospace; color:var(--muted); font-size:0.85rem; line-height:1.7; margin-bottom:48px; }
+    .plan-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; text-align:left; margin-bottom:40px; }
+    .plan-card {
+      padding:24px; border-radius:10px;
+      border:1px solid var(--border); background:rgba(5,12,24,0.6);
+      transition:border-color 0.2s, background 0.2s;
+    }
+    .plan-card:hover { border-color:rgba(59,158,255,0.3); background:rgba(59,158,255,0.04); }
+    .plan-card.featured {
+      border-color:rgba(59,158,255,0.4); background:rgba(59,158,255,0.06);
+      box-shadow:0 0 40px rgba(59,158,255,0.1);
+    }
+    .plan-card.grayed {
+      opacity: 0.45;
+      filter: grayscale(1);
+      pointer-events: none;
+      user-select: none;
+    }
+    .plan-name { font-size:0.75rem; font-family:'DM Mono',monospace; color:var(--muted); letter-spacing:0.1em; text-transform:uppercase; }
+    .plan-price { font-size:1.8rem; font-weight:800; color:var(--white); margin:8px 0;}
+    .plan-price span { font-size:0.85rem; font-weight:400; color:var(--muted); text-decoration: none;}
+    .plan-feature { font-family:'DM Mono',monospace; font-size:0.72rem; color:var(--muted); display:flex; gap:8px; margin-top:8px; }
+    .plan-feature::before { content:'→'; color:var(--blue); }
+
+    /* FOOTER */
+    footer {
+      border-top:1px solid var(--border);
+      padding:40px 60px;
+      display:flex; align-items:center; justify-content:space-between;
+    }
+    .footer-logo {
+      font-size:1.1rem; font-weight:800; letter-spacing:0.06em;
+      background:linear-gradient(135deg,var(--blue),var(--cyan));
+      -webkit-background-clip:text; -webkit-text-fill-color:transparent; background-clip:text;
+    }
+    .footer-note { font-family:'DM Mono',monospace; font-size:0.7rem; color:var(--muted); }
+    .footer-links { display:flex; gap:24px; list-style:none; }
+    .footer-links a { color:var(--muted); font-family:'DM Mono',monospace; font-size:0.72rem; text-decoration:none; transition:color 0.2s; }
+    .footer-links a:hover { color:var(--blue); }
+
+    @media(max-width:900px) {
+      nav { padding:18px 24px; }
+      .nav-links { display:none; }
+      .features { padding:80px 24px; }
+      .features-grid { grid-template-columns:1fr; }
+      .modules { padding:80px 24px; }
+      .modules-inner { grid-template-columns:1fr; gap:40px; }
+      .modules-vis { height:280px; }
+      .download { padding:80px 24px; }
+      .plan-grid { grid-template-columns:1fr; }
+      footer { flex-direction:column; gap:20px; text-align:center; }
+      .stats-bar { flex-wrap:wrap; }
+      .stats-bar-item { flex:1 1 50%; border-bottom:1px solid var(--border); }
+    }
+  </style>
+</head>
+<body>
+
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-logo">Phresh</div>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#modules">Modules</a></li>
+    <li><a href="#download">Pricing</a></li>
+    <li><a href="#download" class="nav-cta">Download</a></li>
+  </ul>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-badge"><span></span>Phresh Client for 1.21.11</div>
+  <h1>
+    <span class="line">The next-gen</span>
+    <span class="line accent">Phresh client</span>
+    <span class="line">you deserve.</span>
+  </h1>
+  <p class="hero-sub">Brand new and built from scratch. Phresh brings precision-crafted modules, buttery smooth performance, and undetected bypass on every major anti-cheat.</p>
+  <div class="hero-actions">
+    <a target="_blank" href="https://github.com/jjlinazer77/Phresh-Client/releases/download/v1.0/Phresh_Client-1.21.11.jar" class="btn-primary" style="text-decoration: none;">Download Free</a>
+    <a href="#features" class="btn-ghost" style="text-decoration: none;">View Features →</a>
+  </div>
+
+
+</section>
+
+<!-- STATS BAR -->
+<div class="stats-bar reveal">
+  <div class="stats-bar-item"><div class="n" id="cnt-users">0</div><div class="l">Active Users</div></div>
+  <div class="stats-bar-item"><div class="n" id="cnt-modules">0</div><div class="l">Modules</div></div>
+  <div class="stats-bar-item"><div class="n" id="cnt-updates">0</div><div class="l">Updates</div></div>
+  <div class="stats-bar-item"><div class="n" id="cnt-bypass">0</div><div class="l">Bypasses</div></div>
+</div>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="section-label reveal">Core Capabilities</div>
+  <h2 class="section-title reveal">Built different, from the ground up.</h2>
+  <p class="section-sub reveal">Every system meticulously engineered for performance and stealth, without compromising on power.</p>
+
+  <div class="features-grid">
+    <div class="feat-card reveal">
+      <div class="feat-icon">⚡</div>
+      <div class="feat-title">Zero-latency Engine</div>
+      <div class="feat-desc">Custom JVM bytecode hooks fire under 0.3ms. No lag spikes, no stutter. Your actions land first.</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-icon">🛡️</div>
+      <div class="feat-title">AntiCheat Bypass</div>
+      <div class="feat-desc">Patched against Watchdog, NCP, Grim, and Intave. Behavioral noise injection defeats ML-based detection.</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-icon">🎯</div>
+      <div class="feat-title">Smart KillAura</div>
+      <div class="feat-desc">Swing angle prediction with hit-rate optimizer. Configurable FOV, range, swing mode and targeting priority.</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-icon">👁️</div>
+      <div class="feat-title">ESP & Tracers</div>
+      <div class="feat-desc">Render entity bounding boxes, health bars, name tags, and tracers through any wall — with custom color rules.</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-icon">🏗️</div>
+      <div class="feat-title">Scaffold & Bridging</div>
+      <div class="feat-desc">Tower, Godbridge, Moonwalk, and Telly modes. Smooth, jitter-free bridging on all major servers.</div>
+    </div>
+    <div class="feat-card reveal">
+      <div class="feat-icon">🔧</div>
+      <div class="feat-title">Module Manager</div>
+      <div class="feat-desc">Bind every module to any key. Save and load config profiles per server. Drag-and-drop HUD editor.</div>
+    </div>
+  </div>
+</section>
+
+<!-- MODULES -->
+<section class="modules" id="modules">
+  <div class="modules-inner">
+    <div>
+      <div class="section-label reveal">Module Library</div>
+      <h2 class="section-title reveal">80+ modules.<br>Every category.</h2>
+      <p class="section-sub reveal">From combat to visuals, movement to utility — AzureX has a module for every playstyle and scenario.</p>
+      <div class="modules-list reveal">
+        <div class="mod-item sel">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">KillAura</div>
+            <div class="mod-item-desc">Auto-attacks nearby entities in configurable range and FOV</div>
+          </div>
+          <span class="mod-tag combat">Combat</span>
+        </div>
+        <div class="mod-item">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">ESP</div>
+            <div class="mod-item-desc">Renders entity boxes and info through walls</div>
+          </div>
+          <span class="mod-tag visual">Visual</span>
+        </div>
+        <div class="mod-item">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">Speed</div>
+            <div class="mod-item-desc">Increases player movement speed with bypass modes</div>
+          </div>
+          <span class="mod-tag move">Movement</span>
+        </div>
+        <div class="mod-item">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">AutoTotem</div>
+            <div class="mod-item-desc">Instantly equips totem when offhand is empty</div>
+          </div>
+          <span class="mod-tag misc">Misc</span>
+        </div>
+        <div class="mod-item">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">Scaffold</div>
+            <div class="mod-item-desc">Automatically places blocks under you while bridging</div>
+          </div>
+          <span class="mod-tag move">Movement</span>
+        </div>
+        <div class="mod-item">
+          <div class="mod-bullet"></div>
+          <div class="mod-text">
+            <div class="mod-item-name">Aimbot</div>
+            <div class="mod-item-desc">Smoothly tracks and locks onto targets for bows or swords</div>
+          </div>
+          <span class="mod-tag combat">Combat</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visual -->
+    <div class="modules-vis reveal">
+      <div class="vis-ring" style="width:360px;height:360px;"></div>
+      <div class="vis-ring" style="width:270px;height:270px;"></div>
+      <div class="vis-ring" style="width:180px;height:180px;"></div>
+      <div class="vis-center">⚔️</div>
+      <!-- orbit dots injected by JS -->
+    </div>
+  </div>
+</section>
+
+<!-- DOWNLOAD -->
+<section class="download" id="download">
+  <div class="download-card reveal">
+    <div class="section-label" style="justify-content:center;">Get Started</div>
+    <h2>Choose your tier.</h2>
+    <p>All plans include our full module library. Upgrade for extras.</p>
+    <div class="plan-grid">
+      <div class="plan-card grayed">
+        <div class="plan-name">Free</div>
+        <div class="plan-price">$0 <span>/ forever</span></div>
+        <div class="plan-feature">60+ modules</div>
+        <div class="plan-feature">Basic bypass</div>
+        <div class="plan-feature">Community support</div>
+        <div class="plan-feature">ClickGUI</div>
+      </div>
+      <div class="plan-card featured">
+        <div class="plan-name">Premium</div>
+        <div class="plan-price">$0 <span>/ month</span></div>
+        <div class="plan-feature">100% release discount</div>
+        <div class="plan-feature">All 80+ modules</div>
+        <div class="plan-feature">Full bypass suite</div>
+        <div class="plan-feature">Priority support</div>
+      </div>
+    </div>
+    <a target="_blank" href="https://github.com/jjlinazer77/Phresh-Client/releases/download/v1.0/Phresh_Client-1.21.11.jar">
+    <button class="btn-primary" style="width:100%;max-width:320px;font-size:1rem;padding:16px;">
+      Download Phresh Free →
+    </button>
+    </a>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="footer-logo">Phresh</div>
+  <div class="footer-note">© 2026 Phresh — For educational purposes only.</div>
+  <ul class="footer-links">
+    <li><a href="#">Discord</a></li>
+    <li><a href="#">GitHub</a></li>
+    <li><a href="#">Changelog</a></li>
+  </ul>
+</footer>
+
+<script>
+/* ---- Cursor ---- */
+const cur = document.getElementById('cursor');
+const ring = document.getElementById('cursor-ring');
+let mx=0,my=0,rx=0,ry=0;
+document.addEventListener('mousemove',e=>{ mx=e.clientX; my=e.clientY; cur.style.left=mx+'px'; cur.style.top=my+'px'; });
+(function animRing(){ rx+=(mx-rx)*0.12; ry+=(my-ry)*0.12; ring.style.left=rx+'px'; ring.style.top=ry+'px'; requestAnimationFrame(animRing); })();
+document.querySelectorAll('button,a,.mod-item,.feat-card').forEach(el=>{
+  el.addEventListener('mouseenter',()=>{ ring.style.width='52px'; ring.style.height='52px'; cur.style.transform='translate(-50%,-50%) scale(1.8)'; });
+  el.addEventListener('mouseleave',()=>{ ring.style.width='34px'; ring.style.height='34px'; cur.style.transform='translate(-50%,-50%) scale(1)'; });
+});
+
+/* ---- Scroll reveal ---- */
+const observer = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{ if(e.isIntersecting){ e.target.classList.add('visible'); }
+else {
+  e.target.classList.remove('visible');
+} });
+}, { threshold:0.12 });
+document.querySelectorAll('.reveal').forEach(el=>observer.observe(el));
+
+/* ---- Animated counters ---- */
+function animCount(el, target, suffix=''){
+  let start=0; const dur=1800;
+  const step = ts => {
+    if(!start) start=ts;
+    const p=Math.min((ts-start)/dur,1);
+    const val=Math.floor(p*target);
+    el.textContent=(val>=1000?(val/1000).toFixed(1)+'k':val)+(suffix);
+    if(p<1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+const countersObs = new IntersectionObserver(entries=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      animCount(document.getElementById('cnt-users'),22);
+      animCount(document.getElementById('cnt-modules'),80,'+');
+      animCount(document.getElementById('cnt-updates'),1);
+      animCount(document.getElementById('cnt-bypass'),7);
+      countersObs.disconnect();
+    }
+  });
+},{threshold:0.4});
+countersObs.observe(document.querySelector('.stats-bar'));
+
+/* ---- Orbit dots ---- */
+const vis = document.querySelector('.modules-vis');
+if(vis){
+  const orbit=document.createElement('div');
+  orbit.style.cssText='position:absolute;inset:0;animation:spin 8s linear infinite;';
+  const dot=document.createElement('div');
+  dot.className='vis-orbit-dot';
+  dot.style.cssText='top:20px;left:50%;transform:translateX(-50%);';
+  orbit.appendChild(dot); vis.appendChild(orbit);
+
+  const orbit2=document.createElement('div');
+  orbit2.style.cssText='position:absolute;inset:0;animation:spin 12s linear infinite reverse;';
+  const dot2=document.createElement('div'); dot2.className='vis-orbit-dot';
+  dot2.style.cssText='bottom:40px;left:20px;background:var(--cyan);box-shadow:0 0 12px rgba(125,232,255,0.8);';
+  orbit2.appendChild(dot2); vis.appendChild(orbit2);
+}
+
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault(); // stops # appearing in URL
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+/* ---- Module item hover ---- */
+document.querySelectorAll('.mod-item').forEach(item=>{
+  item.addEventListener('mouseenter',()=>{
+    document.querySelectorAll('.mod-item').forEach(i=>i.classList.remove('sel'));
+    item.classList.add('sel');
+  });
+});
+
+/* ---- Nav shrink on scroll ---- */
+window.addEventListener('scroll',()=>{
+  document.querySelector('nav').style.padding=window.scrollY>60?'14px 60px':'22px 60px';
+});
+</script>
+</body>
+</html>
