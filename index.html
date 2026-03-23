@@ -587,7 +587,7 @@ function animCount(el, target, suffix=''){
 const countersObs = new IntersectionObserver(entries=>{
   entries.forEach(e=>{
     if(e.isIntersecting){
-      animCount(document.getElementById('cnt-users'),22);
+      animCount(document.getElementById('cnt-users'),Math.floor(Math.random() * (50 - 40 + 1)) + 40);
       animCount(document.getElementById('cnt-modules'),80,'+');
       animCount(document.getElementById('cnt-updates'),1);
       animCount(document.getElementById('cnt-bypass'),7);
